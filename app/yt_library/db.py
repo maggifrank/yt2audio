@@ -9,7 +9,7 @@ from pathlib import Path
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS songs (
-    id          INTEGER PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     video_id    TEXT NOT NULL,
     format      TEXT NOT NULL,
     ext         TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS songs_video ON songs (video_id, format);
 CREATE INDEX IF NOT EXISTS songs_expires ON songs (expires_at);
 
 CREATE TABLE IF NOT EXISTS jobs (
-    id              INTEGER PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     kind            TEXT NOT NULL,          -- download | edit | preview
     status          TEXT NOT NULL,          -- queued | running | done | partial | failed
     url             TEXT,
@@ -88,9 +88,42 @@ def init(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(path)
     try:
+        _migrate_autoincrement(conn)
         conn.executescript(SCHEMA)
     finally:
         conn.close()
+
+
+def _migrate_autoincrement(conn: sqlite3.Connection) -> None:
+    """Databases created before ids used AUTOINCREMENT: rebuild songs/jobs so ids are never reused.
+
+    Without it, deleting the newest song and saving a new edit gave the new song the same id,
+    and browsers could serve the old file from cache for /api/songs/<id>/file.
+    """
+    old = [name for name, sql in conn.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name IN ('songs', 'jobs')")
+        if "AUTOINCREMENT" not in (sql or "").upper()]
+    if not old:
+        return
+    conn.execute("PRAGMA foreign_keys=OFF")  # dropping jobs must not cascade to tracks
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # SQLite's recommended rebuild: create new, copy, drop old, rename new into place
+            # (renaming the old table instead would rewrite tracks' foreign key to point at it)
+            for name in old:
+                stmt = next(st for st in SCHEMA.split(";") if f"TABLE IF NOT EXISTS {name} (" in st)
+                conn.execute(stmt.replace(f"TABLE IF NOT EXISTS {name} (", f"TABLE {name}_new ("))
+                cols = ", ".join(r[1] for r in conn.execute(f"PRAGMA table_info({name})"))
+                conn.execute(f"INSERT INTO {name}_new ({cols}) SELECT {cols} FROM {name}")
+                conn.execute(f"DROP TABLE {name}")
+                conn.execute(f"ALTER TABLE {name}_new RENAME TO {name}")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
 
 
 def get(path: Path) -> sqlite3.Connection:

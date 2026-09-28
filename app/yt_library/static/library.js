@@ -66,6 +66,7 @@
 
   function fmtDuration(sec) {
     if (sec === null || sec === undefined || !isFinite(sec)) return "–";
+    if (sec < 59.95) return `0:${sec < 9.95 ? "0" : ""}${sec.toFixed(1)}`; // short clips: show tenths
     sec = Math.round(sec);
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);

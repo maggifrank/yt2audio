@@ -37,8 +37,9 @@ def song_dict(row: sqlite3.Row) -> dict:
         "ext": row["ext"], "size": row["size"], "created_at": row["created_at"],
         "expires_at": row["expires_at"], "source_url": row["source_url"],
         "parent_id": row["parent_id"], "parent_title": row["parent_title"],
-        "file_url": f"/api/songs/{row['id']}/file",
-        "download_url": f"/api/songs/{row['id']}/file?download=1",
+        # v= makes the URL unique per file, so a browser never plays a cached older file
+        "file_url": f"/api/songs/{row['id']}/file?v={row['filename']}",
+        "download_url": f"/api/songs/{row['id']}/file?download=1&v={row['filename']}",
     }
 
 

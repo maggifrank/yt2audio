@@ -267,3 +267,19 @@ def test_manual_retry_of_failed_tracks(env, tmp_path, monkeypatch):
         r = c.post(f"/api/jobs/{job['id']}/retry", json={"tracks": [3]}, headers=ORIGIN)
         assert r.status_code == 202
         assert wait_job(c, job["id"])["status"] == "partial"
+
+
+def test_new_edit_after_deleting_one_gets_a_new_id_and_exact_crop(client):
+    c = client
+    job = wait_job(c, c.post("/api/jobs", json={"url": "https://youtu.be/AAAAAAAAAAA", "format": "mp3"},
+                             headers=ORIGIN).json()["id"])
+    src = job["tracks"][0]["song_id"]
+    first = wait_job(c, c.post(f"/api/songs/{src}/edit", json={"start": 1, "end": 2}, headers=ORIGIN).json()["id"])
+    assert c.delete(f"/api/songs/{first['result_song_id']}", headers=ORIGIN).status_code == 204
+    second = wait_job(c, c.post(f"/api/songs/{src}/edit", json={"start": 1.2, "end": 2.7},
+                                headers=ORIGIN).json()["id"])
+    assert second["result_song_id"] != first["result_song_id"]  # ids are never reused
+    song = c.get(f"/api/songs/{second['result_song_id']}").json()
+    assert abs(song["duration"] - 1.5) < 0.06, song["duration"]
+    r = c.get(song["download_url"])
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"

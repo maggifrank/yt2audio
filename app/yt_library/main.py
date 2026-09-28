@@ -280,14 +280,15 @@ def create_app(cfg: C.Config | None = None, start_worker: bool = True) -> FastAP
         return {"songs": [s for s in library.list_songs(conn()) if s["id"] in ids], "server_time": db.now()}
 
     @app.get("/api/songs/{song_id}/file")
-    def song_file(song_id: int, download: int = 0):
+    def song_file(song_id: int, download: int = 0, v: str = ""):
         row = song_or_404(song_id)
         path = library.song_path(cfg, row)
         if not path.is_file():
             raise HTTPException(404, "The file for this song is missing.")
         return FileResponse(path, media_type=library.MEDIA_TYPES.get(row["ext"], "application/octet-stream"),
                             filename=safe_filename(row["title"], row["ext"]),
-                            content_disposition_type="attachment" if download else "inline")
+                            content_disposition_type="attachment" if download else "inline",
+                            headers={"Cache-Control": "no-cache"})
 
     @app.post("/api/zip")
     def zip_download(ids: str = Form(max_length=100_000)):
