@@ -192,3 +192,40 @@ def test_rate_limit_uses_forwarded_for_only_from_trusted_proxy(env):
         codes = [c.post("/api/probe", json={"url": "https://www.youtube.com/watch?v=XXXXXXXXXXX"},
                         headers={**ORIGIN, "X-Forwarded-For": f"1.2.3.{i}"}).status_code for i in range(9)]
         assert codes[-1] == 429
+
+
+def _max_overlap(trace: Path) -> int:
+    events = []
+    for line in trace.read_text().splitlines():
+        kind, t = line.split()
+        events.append((float(t), 1 if kind == "start" else -1))
+    cur = best = 0
+    for _, d in sorted(events, key=lambda e: (e[0], e[1])):
+        cur += d
+        best = max(best, cur)
+    return best
+
+
+@pytest.mark.parametrize("parallel", [1, 3])
+def test_parallel_downloads_respect_limit(env, tmp_path, monkeypatch, parallel):
+    trace = tmp_path / "trace"
+    monkeypatch.setenv("FAKE_YTDLP_TRACE", str(trace))
+    monkeypatch.setenv("FAKE_YTDLP_SLEEP", "1")
+    env = {**env, "YTL_PARALLEL_DOWNLOADS": str(parallel)}
+    with TestClient(create_app(config.load(env))) as c:
+        # one playlist (2 downloadable tracks) plus two single videos in other formats
+        jobs = [c.post("/api/jobs", json={"url": PLAYLIST, "format": "mp3"}, headers=ORIGIN).json()["id"]]
+        for fmt in ("opus", "flac"):
+            jobs.append(c.post("/api/jobs", json={"url": "https://youtu.be/AAAAAAAAAAA", "format": fmt},
+                               headers=ORIGIN).json()["id"])
+        # the same song in the same format twice at once is downloaded only once
+        jobs.append(c.post("/api/jobs", json={"url": "https://youtu.be/AAAAAAAAAAA", "format": "mp3"},
+                           headers=ORIGIN).json()["id"])
+        results = [wait_job(c, j) for j in jobs]
+        assert [r["status"] for r in results] == ["partial", "done", "done", "done"]
+        a_mp3 = [t for r in results for t in r["tracks"] if t["video_id"] == "AAAAAAAAAAA"
+                 and r["format"] == "mp3"]
+        assert sorted(t["status"] for t in a_mp3) == ["done", "duplicate"]
+        assert len({t["song_id"] for t in a_mp3}) == 1
+    overlap = _max_overlap(trace)
+    assert overlap == parallel if parallel == 1 else 2 <= overlap <= parallel

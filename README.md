@@ -81,6 +81,7 @@ systemd drop-ins from them). Durations use `s m h d w`, sizes `K M G T`.
 | `YTL_MAX_TRACKS_PER_JOB` | `100` | Larger playlists are rejected |
 | `YTL_MAX_TRACK_DURATION` | `2h` | Longer tracks are skipped (shown per track) |
 | `YTL_MAX_QUEUED_JOBS` | `20` | New jobs get "queue full" beyond this |
+| `YTL_PARALLEL_DOWNLOADS` | `3` | Songs downloaded (or edits rendered) at the same time, 1 to 10 |
 | `YTL_STORAGE_QUOTA` | `20G` | Total library size; jobs that would exceed it are rejected |
 | `YTL_RATE_LIMIT` | `30/1h` | Job submissions per client IP per window (probes/previews get 4x) |
 | `YTL_TRUSTED_PROXIES` | `127.0.0.1` | IPs/CIDRs whose `X-Forwarded-For` is trusted |
@@ -94,7 +95,7 @@ systemd drop-ins from them). Durations use `s m h d w`, sizes `K M G T`.
 - **Add music**: paste a URL, pick format and lifetime, press *Check* to see the track
   count and titles (from `yt-dlp --flat-playlist -J`), choose *Just this video* when the
   URL is a video inside a playlist, then *Download*.
-- **Jobs** run one at a time in the background; each track shows done / failed (with the
+- **Jobs** run in the background, several songs at a time (`YTL_PARALLEL_DOWNLOADS`); each track shows done / failed (with the
   reason) / skipped / duplicate. You can close the page and come back.
 - **Library**: search, sort, play in the browser, extend, delete (with confirmation),
   select (or *select all matching filter*) and download a zip (streamed, not built on disk).
@@ -173,9 +174,14 @@ ffmpeg is stopped, the temp file removed, and the script exits 130 (INT) or 143 
 
 ### Job queue: in-process worker
 
-The web service runs two worker threads: one runs downloads and edits one at a time,
-in order; the other runs editor previews, so a 15-second preview is not stuck behind a
-long playlist. Jobs are stored in SQLite, so the queue survives restarts (interrupted
+Downloads run in parallel, up to `YTL_PARALLEL_DOWNLOADS` (default 3) songs at once:
+several jobs can run side by side, and a playlist job downloads several tracks at once,
+but one shared limit caps the total number of yt2audio/audiocrop processes, so the LXC
+is never running more than that many downloads or edits. Jobs start in submission
+order. The same song in the same format is never downloaded twice at once (the second
+job waits and then links to it as a duplicate). Editor previews have their own lane,
+so a 15-second preview is not stuck behind downloads. Raising the limit much above 3
+to 5 makes YouTube throttling (HTTP 429) more likely. Jobs are stored in SQLite, so the queue survives restarts (interrupted
 jobs are re-queued once; already downloaded tracks then show as duplicates). This is
 simpler than a separate worker service (one unit, no IPC) and robust enough for one
 LXC; the cleanup timer is the only separate process.
@@ -241,8 +247,9 @@ Run locally: `PYTHONPATH=app YTL_LIBRARY_DIR=./music YTL_DB_PATH=./library.db py
   script is unchanged for command-line use.
 - **ALAC files are named `<video_id>-alac.m4a`**, a small deviation from `<video_id>.<ext>`,
   because m4a and alac both use `.m4a`.
-- **Previews run in their own lane** of the in-process queue, not behind downloads;
-  saved edits go through the main queue as specified.
+- **Parallel downloads** (changed from the original one-job-at-a-time spec at your
+  request): default 3, configurable; saved edits share the same limit, previews have
+  their own lane.
 - **Duplicates** are matched on (video ID, format) among original downloads; edits are
   never treated as duplicates.
 - **Extend** sets expiry to `max(current, now + chosen lifetime)`, capped at

@@ -74,6 +74,7 @@ class Config:
     max_tracks_per_job: int
     max_track_duration: int
     max_queued_jobs: int
+    parallel_downloads: int
     storage_quota: int
     rate_limit_count: int
     rate_limit_window: int
@@ -149,6 +150,7 @@ def load(env: dict[str, str] | None = None) -> Config:
         max_tracks_per_job=int(get("YTL_MAX_TRACKS_PER_JOB", "100")),
         max_track_duration=parse_duration(get("YTL_MAX_TRACK_DURATION", "2h")),
         max_queued_jobs=int(get("YTL_MAX_QUEUED_JOBS", "20")),
+        parallel_downloads=max(1, min(10, int(get("YTL_PARALLEL_DOWNLOADS", "3")))),
         storage_quota=parse_size(get("YTL_STORAGE_QUOTA", "20G")),
         rate_limit_count=int(m.group(1)),
         rate_limit_window=parse_duration(m.group(2)),

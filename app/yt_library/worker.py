@@ -1,9 +1,12 @@
 """In-process job queue.
 
-Two worker threads inside the web process, each running one job at a time:
-- the main lane runs downloads and edits in submission order;
-- the preview lane runs 15-second editor previews, so a preview is never stuck
-  behind a long playlist download.
+Worker threads inside the web process:
+- the main lane runs downloads and edits. Up to YTL_PARALLEL_DOWNLOADS jobs run
+  at once, and a playlist job downloads up to that many tracks at once; a shared
+  limit keeps the total number of yt2audio/audiocrop processes at that number too.
+  Jobs start in submission order.
+- the preview lane runs 15-second editor previews one at a time, so a preview is
+  never stuck behind long downloads.
 Jobs live in SQLite, so the queue survives restarts: jobs interrupted by a
 restart are re-queued once when the service starts again.
 """
@@ -16,6 +19,7 @@ import os
 import shutil
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import db, library, ytdl
@@ -33,12 +37,18 @@ class Worker:
         self.stop = threading.Event()
         self.wake = {"main": threading.Event(), "preview": threading.Event()}
         self.threads: list[threading.Thread] = []
+        # at most N yt2audio/audiocrop processes in the main lane, across all jobs
+        self.slots = threading.BoundedSemaphore(cfg.parallel_downloads)
+        # one download per (video, format) at a time, so parallel jobs never fetch the same song twice
+        self._key_locks: dict[tuple[str, str], threading.Lock] = {}
+        self._key_guard = threading.Lock()
 
     # ---- lifecycle ----
     def start(self) -> None:
         self.recover()
-        for lane in ("main", "preview"):
-            t = threading.Thread(target=self._loop, args=(lane,), name=f"worker-{lane}", daemon=True)
+        lanes = ["main"] * self.cfg.parallel_downloads + ["preview"]
+        for i, lane in enumerate(lanes):
+            t = threading.Thread(target=self._loop, args=(lane,), name=f"worker-{lane}-{i}", daemon=True)
             t.start()
             self.threads.append(t)
 
@@ -123,11 +133,24 @@ class Worker:
             else cfg.lifetime(cfg.default_lifetime).seconds
         tmp = self._job_tmpdir(job_id)
         try:
-            for t in conn.execute("SELECT * FROM tracks WHERE job_id = ? AND status = 'pending' ORDER BY idx",
-                                  (job_id,)).fetchall():
-                if self.stop.is_set() or not self._still_running(conn, job_id):
+            pending = conn.execute("SELECT * FROM tracks WHERE job_id = ? AND status = 'pending' ORDER BY idx",
+                                   (job_id,)).fetchall()
+
+            def one(t):
+                tconn = db.get(cfg.db_path)
+                if self.stop.is_set() or not self._still_running(tconn, job_id):
                     return
-                self._download_track(conn, job_id, t, fmt, lifetime, tmp)
+                try:
+                    self._download_track(tconn, job_id, t, fmt, lifetime, tmp)
+                except Exception as e:  # one broken track must not stop the others
+                    log.exception("job %s: track %s crashed", job_id, t["video_id"])
+                    self._set_track(tconn, t["id"], "failed", f"internal error: {e}")
+
+            with ThreadPoolExecutor(max_workers=cfg.parallel_downloads,
+                                    thread_name_prefix=f"job-{job_id}") as pool:
+                list(pool.map(one, pending))
+            if self.stop.is_set() or not self._still_running(conn, job_id):
+                return
             counts = {r["status"]: r["n"] for r in conn.execute(
                 "SELECT status, COUNT(*) AS n FROM tracks WHERE job_id = ? GROUP BY status", (job_id,))}
             ok = counts.get("done", 0) + counts.get("duplicate", 0)
@@ -145,7 +168,15 @@ class Worker:
         conn.execute("UPDATE tracks SET status = ?, error = ?, song_id = ? WHERE id = ?",
                      (status, error, song_id, track_id))
 
+    def _key_lock(self, video_id: str, fmt: str) -> threading.Lock:
+        with self._key_guard:
+            return self._key_locks.setdefault((video_id, fmt), threading.Lock())
+
     def _download_track(self, conn, job_id: int, t, fmt: str, lifetime: int, tmp: Path) -> None:
+        with self._key_lock(t["video_id"], fmt):
+            self._download_track_locked(conn, job_id, t, fmt, lifetime, tmp)
+
+    def _download_track_locked(self, conn, job_id: int, t, fmt: str, lifetime: int, tmp: Path) -> None:
         cfg = self.cfg
         now = db.now()
         conn.execute("UPDATE jobs SET heartbeat_at = ? WHERE id = ?", (now, job_id))
@@ -165,10 +196,14 @@ class Worker:
             return
         self._set_track(conn, t["id"], "running")
 
-        track_dir = tmp / t["video_id"]
+        track_dir = tmp / f"{t['idx']}-{t['video_id']}"
         shutil.rmtree(track_dir, ignore_errors=True)
         track_dir.mkdir()
-        files, res = ytdl.download(cfg, library.source_url_for(t["video_id"]), fmt, track_dir, DOWNLOAD_TIMEOUT)
+        with self.slots:
+            if self.stop.is_set():
+                return
+            files, res = ytdl.download(cfg, library.source_url_for(t["video_id"]), fmt, track_dir,
+                                       DOWNLOAD_TIMEOUT)
         # success is decided by the printed file path, not by yt2audio's exit code
         want_ext = FORMAT_EXT[fmt]
         files = [f for f in files if f.suffix.lower() == f".{want_ext}"]
@@ -229,7 +264,8 @@ class Worker:
         tmp = self._job_tmpdir(job["id"])
         try:
             out = tmp / f"edit.{song['ext']}"
-            res = ytdl.audiocrop(cfg, src, out, params, None, EDIT_TIMEOUT)
+            with self.slots:
+                res = ytdl.audiocrop(cfg, src, out, params, None, EDIT_TIMEOUT)
             if res.returncode != 0 or not out.is_file():
                 with db.tx(conn):
                     self._finish(conn, job["id"], "failed", _crop_error(res))

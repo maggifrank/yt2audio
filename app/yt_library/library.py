@@ -146,7 +146,7 @@ def job_dict(conn, row: sqlite3.Row, with_tracks: bool = True) -> dict:
         lane = ("preview",) if row["kind"] == "preview" else ("download", "edit")
         q = ",".join("?" * len(lane))
         d["queue_position"] = conn.execute(
-            f"SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running') AND kind IN ({q}) AND id <= ?",
+            f"SELECT COUNT(*) FROM jobs WHERE status = 'queued' AND kind IN ({q}) AND id <= ?",
             (*lane, row["id"])).fetchone()[0]
     d["tracks"] = []
     if with_tracks:

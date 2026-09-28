@@ -32,7 +32,16 @@ if v is None or v.startswith("X"):
     print(f"ERROR: [youtube] {v}: Private video. Sign in if you've been granted access", file=sys.stderr)
     sys.exit(1)
 out = tmpl.replace("%(playlist_index&{}- |)s", "").replace("%(title)s", f"Song {v[0]}").replace("%(ext)s", EXT[fmt])
+trace = os.environ.get("FAKE_YTDLP_TRACE")
+if trace:
+    import time
+    with open(trace, "a") as f:
+        f.write(f"start {time.time()}\n")
+    time.sleep(float(os.environ.get("FAKE_YTDLP_SLEEP", "0")))
 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
                 "-ac", "2", *CODEC[fmt], out], check=True)
+if trace:
+    with open(trace, "a") as f:
+        f.write(f"end {time.time()}\n")
 if "--print" in args:
     print(os.path.abspath(out))
