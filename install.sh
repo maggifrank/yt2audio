@@ -265,7 +265,7 @@ case "$probe_host" in *:*) [[ "$probe_host" == \[* ]] || probe_host="[$probe_hos
 url="http://$probe_host:$LISTEN_PORT"
 healthy=0
 for _ in $(seq 1 20); do
-    if curl -fsS -o /dev/null --max-time 2 "$url/api/config"; then healthy=1; break; fi
+    if curl -fs -o /dev/null --max-time 2 "$url/api/config"; then healthy=1; break; fi
     sleep 1
 done
 
