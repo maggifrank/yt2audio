@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5f6d"/>
+      <stop offset=".55" stop-color="#c850c0"/>
+      <stop offset="1" stop-color="#4158d0"/>
+    </linearGradient>
+    <radialGradient id="shine" cx=".3" cy=".25" r=".6">
+      <stop offset="0" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- tile -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#shine)"/>
+  <g transform="translate(52 32.5) scale(.86)">
+  <!-- turtle, seen from above, whose shell is a vinyl record -->
+  <g transform="rotate(-18 246 286)">
+    <!-- flippers and tail -->
+    <g fill="#4fd17a" stroke="#1d7a45" stroke-width="10">
+      <ellipse cx="116" cy="196" rx="62" ry="34" transform="rotate(-35 116 196)"/>
+      <ellipse cx="376" cy="196" rx="62" ry="34" transform="rotate(35 376 196)"/>
+      <ellipse cx="128" cy="392" rx="50" ry="30" transform="rotate(40 128 392)"/>
+      <ellipse cx="364" cy="392" rx="50" ry="30" transform="rotate(-40 364 392)"/>
+      <path d="M226 420 L246 470 L266 420 Z" stroke-linejoin="round"/>
+    </g>
+    <!-- head -->
+    <circle cx="246" cy="110" r="58" fill="#4fd17a" stroke="#1d7a45" stroke-width="10"/>
+    <circle cx="222" cy="96" r="13" fill="#15131c"/>
+    <circle cx="270" cy="96" r="13" fill="#15131c"/>
+    <circle cx="226" cy="91" r="4.5" fill="#fff"/>
+    <circle cx="274" cy="91" r="4.5" fill="#fff"/>
+    <path d="M226 124 q20 18 40 0" fill="none" stroke="#15131c" stroke-width="8" stroke-linecap="round"/>
+    <!-- shell: the record -->
+    <circle cx="246" cy="296" r="150" fill="#15131c" stroke="#1d7a45" stroke-width="10"/>
+    <g fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="5">
+      <circle cx="246" cy="296" r="126"/>
+      <circle cx="246" cy="296" r="104"/>
+      <circle cx="246" cy="296" r="84"/>
+    </g>
+    <path d="M152 220 A120 120 0 0 1 222 182" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="246" cy="296" r="62" fill="#ff3b3b"/>
+  </g>
+  <!-- play button stays upright -->
+  <path d="M228 264 L286 298 L228 332 Z" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+  <!-- music note -->
+  <g transform="rotate(14 440 90)">
+    <path d="M448 36 v88" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+    <path d="M448 36 c20 4 40 17 43 43 c-10-13-24-17-43-15" fill="#fff"/>
+    <ellipse cx="430" cy="126" rx="27" ry="21" transform="rotate(-22 430 126)" fill="#fff"/>
+  </g>
+  <!-- sparkles -->
+  <path d="M462 300 l8 19 19 8 -19 8 -8 19 -8 -19 -19 -8 19 -8 z" fill="#ffe66d"/>
+  <path d="M60 60 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z" fill="#ffe66d"/>
+</svg>
