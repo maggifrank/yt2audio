@@ -1,0 +1,45 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials*.json
+service-account*.json
+client_secret*.json
+secrets/
+*.secret
+cookies.txt
+*cookies*.txt
+*.cookies
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Downloaded / generated media
+downloads/
+output/
+*.mp3
+*.m4a
+*.opus
+*.wav
+*.webm
+*.mp4
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
