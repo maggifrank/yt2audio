@@ -155,7 +155,8 @@ function readControls() {
     target: parseFloat($("target").value),
     fade_in: parseFloat($("fade-in").value) || 0,
     fade_out: parseFloat($("fade-out").value) || 0,
-    ringtone: $("output").value === "ringtone",
+    output: $("output").value,
+    ringtone: $("output").value === "m4r",
   };
 }
 
@@ -202,15 +203,18 @@ function buildBody() {
     target: isFinite(c.target) ? c.target : config.edit.target_default,
     fade_in: c.fade_in,
     fade_out: c.fade_out,
-    ringtone: c.ringtone,
+    output: c.output,
   };
 }
 
 // ---------- controls ----------
 $("output").addEventListener("change", () => {
-  const ring = $("output").value === "ringtone";
+  const out = $("output").value;
+  const ring = out === "m4r";
   $("ringtone-help").classList.toggle("hidden", !ring);
-  $("save-btn").textContent = ring ? "Save as ringtone" : "Save as new song";
+  $("lossless-help").classList.toggle("hidden", !(out === "wav" || out === "flac"));
+  $("save-btn").textContent = ring ? "Save as ringtone"
+    : out === "same" ? "Save as new song" : `Save as ${$("output").selectedOptions[0].textContent.split(" (")[0]}`;
   validate();
 });
 function setupControls() {
@@ -455,6 +459,7 @@ async function boot() {
   document.title = (song.title || "Song") + " · Edit · yt-library";
   $("song-title").textContent = song.title || "(untitled)";
   $("song-format").textContent = song.format || song.ext || "–";
+  $("output-same").textContent = `Same format as the original (${song.format || song.ext})`;
   duration = Number(song.duration) || 0;
   $("song-duration").textContent = fmtDuration(duration);
   if (song.parent_id !== null && song.parent_id !== undefined) {

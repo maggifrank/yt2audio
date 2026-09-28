@@ -87,10 +87,17 @@
       <h2 id="prev-h">Preview &amp; save</h2>
       <label class="small" for="output">Save as
         <select id="output">
-          <option value="same" selected>Same format as the original</option>
-          <option value="ringtone">iPhone ringtone (.m4r, up to 40 seconds)</option>
+          <option value="same" id="output-same" selected>Same format as the original</option>
+          <option value="wav">WAV (uncompressed)</option>
+          <option value="flac">FLAC (lossless, smaller than WAV)</option>
+          <option value="mp3">MP3</option>
+          <option value="m4a">M4A (AAC)</option>
+          <option value="opus">Opus</option>
+          <option value="ogg">Ogg Vorbis</option>
+          <option value="m4r">iPhone ringtone (.m4r, up to 40 seconds)</option>
         </select>
       </label>
+      <p id="lossless-help" class="small muted hidden">Converting to WAV or FLAC keeps the audio exactly as it is now; it can't bring back quality the original format already lost.</p>
       <p id="ringtone-help" class="small muted hidden">Select at most 40 seconds. After saving, download the .m4r and add it to your iPhone: on a Mac, connect the iPhone and drag the file onto it in Finder (on Windows, use the Apple Devices app or iTunes); then pick it in Settings &gt; Sounds &amp; Haptics &gt; Ringtone.</p>
       <div class="row">
         <button type="button" id="preview-btn">Preview</button>

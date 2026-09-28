@@ -57,7 +57,8 @@ class EditBody(BaseModel):
     target: float = C.TARGET_DEFAULT
     fade_in: float = 0
     fade_out: float = 0
-    ringtone: bool = False   # save as an iPhone ringtone (.m4r, AAC, at most 40 s)
+    output: str = "same"     # "same", or an output format: mp3 m4a opus ogg wav flac m4r (iPhone ringtone)
+    ringtone: bool = False   # same as output="m4r"
 
 
 def create_app(cfg: C.Config | None = None, start_worker: bool = True) -> FastAPI:
@@ -150,7 +151,8 @@ def create_app(cfg: C.Config | None = None, start_worker: bool = True) -> FastAP
                      "target_max": C.TARGET_RANGE[1], "target_default": C.TARGET_DEFAULT,
                      "fade_min": C.FADE_RANGE[0], "fade_max": C.FADE_RANGE[1],
                      "preview_seconds": C.PREVIEW_SECONDS,
-                     "ringtone_max_seconds": C.RINGTONE_MAX_SECONDS},
+                     "ringtone_max_seconds": C.RINGTONE_MAX_SECONDS,
+                     "outputs": list(C.EDIT_OUTPUTS)},
             "server_time": db.now(),
         }
 
@@ -328,14 +330,18 @@ def create_app(cfg: C.Config | None = None, start_worker: bool = True) -> FastAP
         length = (end if end is not None else (dur or 0)) - body.start
         if dur and length <= 0:
             raise HTTPException(400, "Start must be before the end of the song.")
-        if body.ringtone and (not dur and end is None or length > C.RINGTONE_MAX_SECONDS + 0.0005):
+        output = "m4r" if body.ringtone else body.output
+        if output != "same" and output not in C.EDIT_OUTPUTS:
+            raise HTTPException(400, f"Save as must be 'same' or one of: {', '.join(C.EDIT_OUTPUTS)}.")
+        output = None if output in ("same", song["ext"]) else output
+        if output == "m4r" and (not dur and end is None or length > C.RINGTONE_MAX_SECONDS + 0.0005):
             raise HTTPException(400, f"iPhone ringtones can be at most {C.RINGTONE_MAX_SECONDS} seconds; "
                                      "select a shorter part of the song.")
         if dur and body.fade_in + body.fade_out > length:
             raise HTTPException(400, "The fades are longer than the selection.")
         return {"start": round(body.start, 3), "end": None if end is None else round(end, 3),
                 "gain": body.gain, "normalize": body.normalize, "target": body.target,
-                "fade_in": body.fade_in, "fade_out": body.fade_out, "ringtone": body.ringtone}
+                "fade_in": body.fade_in, "fade_out": body.fade_out, "output": output}
 
     def edit_job(kind: str, song_id: int, body: EditBody, request: Request):
         song = song_or_404(song_id)

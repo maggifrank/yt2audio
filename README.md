@@ -113,6 +113,9 @@ systemd drop-ins from them). Durations use `s m h d w`, sizes `K M G T`.
   normalize (+ target LUFS under *Advanced*), fades, a server-rendered 15-second
   *Preview*, and *Save as new song*, which keeps the original and creates
   "<title> (edit)" in the same format with the original's expiry.
+- **Save as another format**: the editor's *Save as* menu keeps the original's format by
+  default, or saves the edit as WAV, FLAC, MP3, M4A, Opus or Ogg Vorbis (for example a WAV
+  of a song you downloaded as mp3 by mistake; it can't restore quality mp3 already lost).
 - **iPhone ringtones**: in the editor, set *Save as* to *iPhone ringtone*, select at most
   40 seconds (the iPhone limit), then save and download the `.m4r` (AAC). The server can't
   put it on the phone: on a Mac, connect the iPhone and drag the file onto it in Finder

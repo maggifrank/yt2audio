@@ -14,7 +14,10 @@ FORMAT_EXT = {"mp3": "mp3", "m4a": "m4a", "opus": "opus", "vorbis": "ogg",
               "wav": "wav", "flac": "flac", "aac": "aac", "alac": "m4a"}
 # rough bytes per second of audio, used to estimate job size for the quota check
 FORMAT_BYTES_PER_SEC = {"mp3": 32_000, "m4a": 32_000, "opus": 20_000, "vorbis": 32_000,
-                        "aac": 32_000, "wav": 176_400, "flac": 110_000, "alac": 110_000}
+                        "aac": 32_000, "wav": 176_400, "flac": 110_000, "alac": 110_000, "m4r": 32_000}
+# formats the editor can save to (audiocrop output extension -> library format name)
+EDIT_OUTPUTS = {"mp3": "mp3", "m4a": "m4a", "opus": "opus", "ogg": "vorbis", "wav": "wav", "flac": "flac",
+                "m4r": "m4r"}
 
 # audiocrop's own limits; the backend and UI use the same ranges
 GAIN_RANGE = (-20.0, 20.0)

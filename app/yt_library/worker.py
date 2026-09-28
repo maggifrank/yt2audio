@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import db, library, ytdl
-from .config import FORMAT_EXT, Config
+from .config import EDIT_OUTPUTS, FORMAT_EXT, Config
 
 log = logging.getLogger("yt_library")
 
@@ -273,8 +273,7 @@ class Worker:
         params = json.loads(job["params"])
         tmp = self._job_tmpdir(job["id"])
         try:
-            ringtone = bool(params.get("ringtone"))
-            ext, fmt = ("m4r", "m4r") if ringtone else (song["ext"], song["format"])
+            ext, fmt = _output(song, params)
             out = tmp / f"edit.{ext}"
             with self.slots:
                 res = ytdl.audiocrop(cfg, src, out, params, None, EDIT_TIMEOUT)
@@ -298,7 +297,7 @@ class Worker:
                     "INSERT INTO songs (video_id, format, ext, filename, title, uploader, duration, size, source_url, "
                     "parent_id, edit_n, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (song["video_id"], fmt, ext, filename,
-                     f"{song['title']} ({'ringtone' if ringtone else 'edit'})",
+                     f"{song['title']} ({_edit_label(song, ext)})",
                      song["uploader"], meta.get("duration"), dest.stat().st_size, song["source_url"],
                      song["id"], n, db.now(), song["expires_at"]))
                 self._finish(conn, job["id"], "done", None, result_song_id=cur.lastrowid)
@@ -315,7 +314,7 @@ class Worker:
             return
         cfg.preview_dir.mkdir(parents=True, exist_ok=True)
         params = json.loads(job["params"])
-        out = cfg.preview_dir / f"{job['id']}.{'m4r' if params.get('ringtone') else song['ext']}"
+        out = cfg.preview_dir / f"{job['id']}.{_output(song, params)[0]}"
         from .config import PREVIEW_SECONDS
         res = ytdl.audiocrop(cfg, src, out, params, PREVIEW_SECONDS, EDIT_TIMEOUT)
         with db.tx(conn):
@@ -324,6 +323,20 @@ class Worker:
                 self._finish(conn, job["id"], "failed", _crop_error(res))
             else:
                 self._finish(conn, job["id"], "done", None, preview_file=out.name)
+
+
+def _output(song, params: dict) -> tuple[str, str]:
+    """(extension, library format) an edit is saved as: the source's, or the chosen output."""
+    out = params.get("output") or ("m4r" if params.get("ringtone") else None)  # "ringtone": older queued jobs
+    if not out or out == song["ext"]:
+        return song["ext"], song["format"]
+    return out, EDIT_OUTPUTS[out]
+
+
+def _edit_label(song, ext: str) -> str:
+    if ext == "m4r":
+        return "ringtone"
+    return "edit" if ext == song["ext"] else f"edit, {ext.upper()}"
 
 
 def _crop_error(res: ytdl.Result) -> str:

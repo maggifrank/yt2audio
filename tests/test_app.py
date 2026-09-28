@@ -304,3 +304,25 @@ def test_iphone_ringtone_export(client):
     r = c.get(song["download_url"])
     assert r.status_code == 200 and ".m4r" in r.headers["content-disposition"]
     assert r.content[4:8] == b"ftyp"  # MP4 container, as iPhones expect
+
+
+def test_edit_can_change_format(client):
+    c = client
+    job = wait_job(c, c.post("/api/jobs", json={"url": "https://youtu.be/AAAAAAAAAAA", "format": "mp3"},
+                             headers=ORIGIN).json()["id"])
+    src = job["tracks"][0]["song_id"]
+    assert c.post(f"/api/songs/{src}/edit", json={"output": "exe"}, headers=ORIGIN).status_code == 400
+    pj = wait_job(c, c.post(f"/api/songs/{src}/preview", json={"output": "wav"}, headers=ORIGIN).json()["id"])
+    assert pj["status"] == "done" and c.get(pj["preview_url"]).headers["content-type"] == "audio/wav"
+    for out, ext, fmt in (("wav", "wav", "wav"), ("flac", "flac", "flac"), ("ogg", "ogg", "vorbis"),
+                          ("mp3", "mp3", "mp3"), ("same", "mp3", "mp3")):
+        ej = wait_job(c, c.post(f"/api/songs/{src}/edit", json={"start": 0.5, "output": out},
+                                headers=ORIGIN).json()["id"])
+        assert ej["status"] == "done", ej
+        song = c.get(f"/api/songs/{ej['result_song_id']}").json()
+        assert (song["ext"], song["format"]) == (ext, fmt)
+        assert song["title"] == ("Song A (edit)" if ext == "mp3" else f"Song A (edit, {ext.upper()})")
+        r = c.get(song["download_url"])
+        assert r.status_code == 200 and f".{ext}" in r.headers["content-disposition"]
+    wav = next(s for s in c.get("/api/songs").json()["songs"] if s["ext"] == "wav")
+    assert c.get(wav["download_url"]).content[:4] == b"RIFF"
