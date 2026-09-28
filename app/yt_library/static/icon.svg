@@ -13,24 +13,44 @@
   <!-- tile -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <rect width="512" height="512" rx="112" fill="url(#shine)"/>
-  <!-- vinyl record -->
-  <circle cx="236" cy="286" r="178" fill="#15131c"/>
-  <g fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="5">
-    <circle cx="236" cy="286" r="152"/>
-    <circle cx="236" cy="286" r="128"/>
-    <circle cx="236" cy="286" r="104"/>
+  <g transform="translate(24 50) scale(.86)">
+  <!-- turtle, seen from above, whose shell is a vinyl record -->
+  <g transform="rotate(-18 246 286)">
+    <!-- flippers and tail -->
+    <g fill="#4fd17a" stroke="#1d7a45" stroke-width="10">
+      <ellipse cx="116" cy="196" rx="62" ry="34" transform="rotate(-35 116 196)"/>
+      <ellipse cx="376" cy="196" rx="62" ry="34" transform="rotate(35 376 196)"/>
+      <ellipse cx="128" cy="392" rx="50" ry="30" transform="rotate(40 128 392)"/>
+      <ellipse cx="364" cy="392" rx="50" ry="30" transform="rotate(-40 364 392)"/>
+      <path d="M226 420 L246 470 L266 420 Z" stroke-linejoin="round"/>
+    </g>
+    <!-- head -->
+    <circle cx="246" cy="110" r="58" fill="#4fd17a" stroke="#1d7a45" stroke-width="10"/>
+    <circle cx="222" cy="96" r="13" fill="#15131c"/>
+    <circle cx="270" cy="96" r="13" fill="#15131c"/>
+    <circle cx="226" cy="91" r="4.5" fill="#fff"/>
+    <circle cx="274" cy="91" r="4.5" fill="#fff"/>
+    <path d="M226 124 q20 18 40 0" fill="none" stroke="#15131c" stroke-width="8" stroke-linecap="round"/>
+    <!-- shell: the record -->
+    <circle cx="246" cy="296" r="150" fill="#15131c" stroke="#1d7a45" stroke-width="10"/>
+    <g fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="5">
+      <circle cx="246" cy="296" r="126"/>
+      <circle cx="246" cy="296" r="104"/>
+      <circle cx="246" cy="296" r="84"/>
+    </g>
+    <path d="M152 220 A120 120 0 0 1 222 182" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="246" cy="296" r="62" fill="#ff3b3b"/>
   </g>
-  <path d="M130 196 A140 140 0 0 1 216 150" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="12" stroke-linecap="round"/>
-  <!-- label: the play button that became a record -->
-  <circle cx="236" cy="286" r="74" fill="#ff3b3b"/>
-  <path d="M212 246 L284 286 L212 326 Z" fill="#fff" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
-  <!-- music note bouncing out -->
-  <g transform="rotate(14 400 140)">
-    <path d="M384 62 v132" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
-    <path d="M384 62 c28 6 56 24 60 60 c-14-18-34-24-60-22" fill="#fff"/>
-    <ellipse cx="358" cy="198" rx="40" ry="31" transform="rotate(-22 358 198)" fill="#fff"/>
+  <!-- play button stays upright -->
+  <path d="M228 264 L286 298 L228 332 Z" fill="#fff" stroke="#fff" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+  <!-- music note -->
+  <g transform="rotate(14 440 90)">
+    <path d="M448 36 v88" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+    <path d="M448 36 c20 4 40 17 43 43 c-10-13-24-17-43-15" fill="#fff"/>
+    <ellipse cx="430" cy="126" rx="27" ry="21" transform="rotate(-22 430 126)" fill="#fff"/>
   </g>
   <!-- sparkles -->
-  <path d="M458 262 l9 21 21 9 -21 9 -9 21 -9 -21 -21 -9 21 -9 z" fill="#ffe66d"/>
-  <path d="M300 58 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z" fill="#ffe66d"/>
+  <path d="M462 300 l8 19 19 8 -19 8 -8 19 -8 -19 -19 -8 19 -8 z" fill="#ffe66d"/>
+  <path d="M60 60 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6 z" fill="#ffe66d"/>
 </svg>
