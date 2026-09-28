@@ -9,7 +9,7 @@ import sqlite3
 from pathlib import Path
 
 from . import db
-from .config import FORMAT_BYTES_PER_SEC, FORMAT_EXT, Config
+from .config import EDIT_OUTPUTS, FORMAT_BYTES_PER_SEC, FORMAT_EXT, Config
 from .util import video_url
 
 log = logging.getLogger("yt_library")
@@ -242,7 +242,11 @@ def create_edit_job(cfg: Config, conn, kind: str, song, params: dict, client_ip:
     with db.tx(conn):
         est = 0
         if kind == "edit":
-            est = int(song["size"] or 0) + 1024 * 1024
+            out = params.get("output")
+            est = int(song["size"] or 0)
+            if out:  # converting (e.g. mp3 -> wav) can be much bigger than the source
+                est = max(est, estimate(EDIT_OUTPUTS[out], song["duration"]))
+            est += 1024 * 1024
             check_quota(cfg, conn, est)
         cur = conn.execute(
             "INSERT INTO jobs (kind, status, url, format, title, params, song_id, client_ip, estimate_bytes, "
