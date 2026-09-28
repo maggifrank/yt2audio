@@ -338,6 +338,13 @@
     if (job.kind === "edit" && job.result_song_id) {
       body.append(el("div", null, "Result: ", songLink(job.result_song_id, "open new song")));
     }
+    const failedN = tracks.filter((t) => t.status === "failed").length;
+    const canRetry = job.kind === "download" && !active && failedN > 0;
+    if (canRetry) {
+      const btn = el("button", { type: "button", class: "small", text: `Retry ${failedN} failed track${failedN === 1 ? "" : "s"}` });
+      btn.addEventListener("click", () => retryJob(job.id, null, btn));
+      body.append(el("div", { class: "jactions" }, btn));
+    }
     if (tracks.length) {
       const ul = el("ul", { class: "tracks" });
       for (const t of tracks) {
@@ -349,6 +356,11 @@
         if (t.song_id && (t.status === "done" || t.status === "duplicate")) {
           li.append(" ", songLink(t.song_id, t.status === "duplicate" ? "existing song" : "song"));
         }
+        if (canRetry && t.status === "failed" && failedN > 1) {
+          const rb = el("button", { type: "button", class: "small link", text: "Retry" });
+          rb.addEventListener("click", () => retryJob(job.id, [t.index], rb));
+          li.append(" ", rb);
+        }
         if (t.error) li.append(el("div", { class: "err", text: t.error }));
         ul.append(li);
       }
@@ -356,6 +368,20 @@
     }
     det.append(body);
     return det;
+  }
+
+  async function retryJob(jobId, trackIndexes, btn) {
+    btn.disabled = true;
+    try {
+      await api("POST", `/api/jobs/${encodeURIComponent(jobId)}/retry`, trackIndexes ? { tracks: trackIndexes } : {});
+      openJobs.add(jobId);
+      closedJobs.delete(jobId);
+      setMsg($("jobs-msg"), "");
+    } catch (e) {
+      setMsg($("jobs-msg"), "Retry failed: " + e.message, "error");
+      btn.disabled = false;
+    }
+    refreshJobsNow();
   }
 
   async function fetchJobs() {

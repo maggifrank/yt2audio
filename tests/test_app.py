@@ -229,3 +229,41 @@ def test_parallel_downloads_respect_limit(env, tmp_path, monkeypatch, parallel):
         assert len({t["song_id"] for t in a_mp3}) == 1
     overlap = _max_overlap(trace)
     assert overlap == parallel if parallel == 1 else 2 <= overlap <= parallel
+
+
+def test_transient_failure_is_retried_automatically(env, tmp_path, monkeypatch):
+    from yt_library import worker
+    monkeypatch.setattr(worker, "AUTO_RETRY_DELAY", 0)
+    monkeypatch.setenv("FAKE_YTDLP_STATE", str(tmp_path))
+    with TestClient(create_app(config.load(env))) as c:
+        r = c.post("/api/jobs", json={"url": "https://youtu.be/FFFFFFFFFFF", "format": "mp3"}, headers=ORIGIN)
+        job = wait_job(c, r.json()["id"])
+        assert job["status"] == "done" and job["tracks"][0]["status"] == "done", job
+
+
+def test_manual_retry_of_failed_tracks(env, tmp_path, monkeypatch):
+    from yt_library import worker
+    monkeypatch.setattr(worker, "AUTO_RETRY_DELAY", 0)
+    with TestClient(create_app(config.load(env))) as c:
+        r = c.post("/api/jobs", json={"url": PLAYLIST, "format": "mp3"}, headers=ORIGIN)
+        job = wait_job(c, r.json()["id"])
+        assert job["status"] == "partial"
+        # a private video is not retried automatically, but can be retried by hand
+        x = next(t for t in job["tracks"] if t["video_id"] == "XXXXXXXXXXX")
+        assert x["status"] == "failed"
+        r = c.post(f"/api/jobs/{job['id']}/retry", json={}, headers=ORIGIN)
+        assert r.status_code == 202, r.text
+        again = wait_job(c, job["id"])
+        assert again["status"] == "partial"
+        assert next(t for t in again["tracks"] if t["video_id"] == "XXXXXXXXXXX")["status"] == "failed"
+        # skipped (too long) tracks are not retried, and done tracks stay done
+        st = {t["video_id"]: t["status"] for t in again["tracks"]}
+        assert st["AAAAAAAAAAA"] == "done" and st["LLLLLLLLLLL"] == "skipped"
+        # a job without failures can't be retried
+        r = c.post("/api/jobs", json={"url": "https://youtu.be/AAAAAAAAAAA", "format": "opus"}, headers=ORIGIN)
+        ok = wait_job(c, r.json()["id"])
+        assert c.post(f"/api/jobs/{ok['id']}/retry", json={}, headers=ORIGIN).status_code == 409
+        # retrying one specific track
+        r = c.post(f"/api/jobs/{job['id']}/retry", json={"tracks": [3]}, headers=ORIGIN)
+        assert r.status_code == 202
+        assert wait_job(c, job["id"])["status"] == "partial"

@@ -28,6 +28,13 @@ if "-J" in args:
 v = vid(url)
 fmt = args[args.index("--audio-format") + 1]
 tmpl = args[args.index("-o") + 1]
+state = os.environ.get("FAKE_YTDLP_STATE")
+if v and v.startswith("F") and state:
+    marker = os.path.join(state, v)
+    if not os.path.exists(marker):  # flaky: first attempt fails like YouTube's intermittent 403
+        open(marker, "w").close()
+        print("ERROR: unable to download video data: HTTP Error 403: Forbidden", file=sys.stderr)
+        sys.exit(1)
 if v is None or v.startswith("X"):
     print(f"ERROR: [youtube] {v}: Private video. Sign in if you've been granted access", file=sys.stderr)
     sys.exit(1)

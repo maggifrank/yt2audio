@@ -97,6 +97,11 @@ systemd drop-ins from them). Durations use `s m h d w`, sizes `K M G T`.
   URL is a video inside a playlist, then *Download*.
 - **Jobs** run in the background, several songs at a time (`YTL_PARALLEL_DOWNLOADS`); each track shows done / failed (with the
   reason) / skipped / duplicate. You can close the page and come back.
+- **Retries**: when a playlist job finishes, tracks that failed for a reason that might
+  be temporary (such as YouTube's intermittent `HTTP Error 403: Forbidden`) are retried
+  once automatically after 20 seconds. Private, removed, age- or region-restricted videos
+  are not. Any finished job with failed tracks also has a *Retry failed tracks* button
+  (and a *Retry* link per track) that re-queues them.
 - **Library**: search, sort, play in the browser, extend, delete (with confirmation),
   select (or *select all matching filter*) and download a zip (streamed, not built on disk).
   Songs expiring within 24 hours are highlighted. Edits show which song they came from.

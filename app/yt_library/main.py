@@ -41,6 +41,10 @@ class IdsBody(BaseModel):
     ids: list[int] = Field(max_length=MAX_IDS)
 
 
+class RetryBody(BaseModel):
+    tracks: list[int] | None = Field(default=None, max_length=MAX_IDS)
+
+
 class ExtendBody(IdsBody):
     lifetime: str
 
@@ -215,6 +219,23 @@ def create_app(cfg: C.Config | None = None, start_worker: bool = True) -> FastAP
         if row is None:
             raise HTTPException(404, "Job not found.")
         return library.job_dict(conn(), row)
+
+    @app.post("/api/jobs/{job_id}/retry", status_code=202)
+    def retry_job(job_id: int, request: Request, body: RetryBody | None = None):
+        if library.count_queued(conn()) >= cfg.max_queued_jobs:
+            raise HTTPException(503, f"The queue is full ({cfg.max_queued_jobs} jobs). Try again later.")
+        ip = limit(job_limiter, request)
+        try:
+            n = library.retry_job(cfg, conn(), job_id, body.tracks if body else None)
+        except LookupError as e:
+            raise HTTPException(404, str(e))
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        except library.QuotaExceeded as e:
+            raise HTTPException(413, str(e))
+        worker.notify("download")
+        log.info("job %d: %d failed tracks re-queued by %s", job_id, n, ip)
+        return job_json(job_id)
 
     @app.get("/api/jobs")
     def list_jobs():

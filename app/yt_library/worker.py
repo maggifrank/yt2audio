@@ -28,6 +28,7 @@ from .config import FORMAT_EXT, Config
 log = logging.getLogger("yt_library")
 
 DOWNLOAD_TIMEOUT = 45 * 60   # per track
+AUTO_RETRY_DELAY = 20        # seconds before failed tracks of a job are retried once
 EDIT_TIMEOUT = 30 * 60
 
 
@@ -149,6 +150,15 @@ class Worker:
             with ThreadPoolExecutor(max_workers=cfg.parallel_downloads,
                                     thread_name_prefix=f"job-{job_id}") as pool:
                 list(pool.map(one, pending))
+                # retry transient failures (e.g. YouTube's intermittent HTTP 403) once, after a pause
+                again = [t for t in conn.execute(
+                    "SELECT * FROM tracks WHERE job_id = ? AND status = 'failed' ORDER BY idx", (job_id,))
+                    if library.retryable(t["error"])]
+                if again and not self.stop.wait(AUTO_RETRY_DELAY) and self._still_running(conn, job_id):
+                    log.info("job %s: retrying %d failed tracks", job_id, len(again))
+                    conn.executemany("UPDATE tracks SET status = 'pending', error = NULL WHERE id = ?",
+                                     [(t["id"],) for t in again])
+                    list(pool.map(one, again))
             if self.stop.is_set() or not self._still_running(conn, job_id):
                 return
             counts = {r["status"]: r["n"] for r in conn.execute(

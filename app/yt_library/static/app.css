@@ -221,3 +221,4 @@ details.adv summary { cursor: pointer; color: var(--muted); }
 details.adv .inner { padding: 8px 0 0; }
 .preview audio { width: 100%; margin-top: 6px; }
 .note { font-size: .85rem; color: var(--muted); }
+.jactions { margin: 6px 0; }

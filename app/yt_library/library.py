@@ -200,6 +200,43 @@ def create_download_job(cfg: Config, conn, url: str, title: str, fmt: str, lifet
     return job_id
 
 
+# errors that another attempt won't fix
+_PERMANENT = ("private video", "video unavailable", "has been removed", "copyright", "confirm your age",
+              "members-only", "join this channel", "not available in your country", "premieres in",
+              "live event will begin", "longer than the", "storage quota")
+
+
+def retryable(error: str | None) -> bool:
+    e = (error or "").lower()
+    return not any(p in e for p in _PERMANENT)
+
+
+def retry_job(cfg: Config, conn, job_id: int, indexes: list[int] | None) -> int:
+    """Re-queue a finished download job's failed tracks (all, or the given track indexes).
+
+    Returns the number of tracks re-queued. Raises LookupError / ValueError / QuotaExceeded.
+    """
+    with db.tx(conn):
+        job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if job is None or job["kind"] != "download":
+            raise LookupError("Job not found.")
+        if job["status"] in ACTIVE:
+            raise ValueError("This job is still running; failed tracks are retried when it finishes.")
+        rows = conn.execute("SELECT * FROM tracks WHERE job_id = ? AND status = 'failed'", (job_id,)).fetchall()
+        if indexes:
+            rows = [r for r in rows if r["idx"] in set(indexes)]
+        if not rows:
+            raise ValueError("There are no failed tracks to retry.")
+        est = {r["id"]: (0 if find_duplicate(conn, r["video_id"], job["format"]) else
+                         estimate(job["format"], r["duration"])) for r in rows}
+        check_quota(cfg, conn, sum(est.values()))
+        conn.executemany("UPDATE tracks SET status = 'pending', error = NULL, estimate = ? WHERE id = ?",
+                         [(e, i) for i, e in est.items()])
+        conn.execute("UPDATE jobs SET status = 'queued', error = NULL, started_at = NULL, finished_at = NULL, "
+                     "attempts = 0 WHERE id = ?", (job_id,))
+        return len(rows)
+
+
 def create_edit_job(cfg: Config, conn, kind: str, song, params: dict, client_ip: str) -> int:
     with db.tx(conn):
         est = 0
