@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# audiocrop — crop, boost, normalize and fade an audio file with ffmpeg.
+# Works on Linux and macOS (bash 3.2+). Requires ffmpeg and ffprobe.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: audiocrop [options] <input> <output>
+
+Options:
+  -s, --start TIME      crop start (default: 0)
+  -e, --end TIME        crop end (default: end of file)
+  -g, --gain DB         gain in dB, -20 to 20 (default: 0)
+  -n, --normalize       loudness-normalize (EBU R128 / loudnorm)
+  -t, --target LUFS     normalize target, -30 to -5 (default: -14)
+      --fade-in SEC     fade in length, 0 to 10 (default: 0)
+      --fade-out SEC    fade out length, 0 to 10 (default: 0)
+  -p, --preview SEC     render only the first SEC seconds, 1 to 60
+  -f, --force           overwrite the output file if it exists
+  -q, --quiet           print only the output path
+  -h, --help            show this help
+
+TIME can be seconds (75.5), mm:ss(.ms) (1:15.5) or hh:mm:ss(.ms).
+A limiter (-1 dBFS ceiling) is always applied so boosted audio never clips.
+Output format follows the output extension: mp3 m4a aac opus ogg wav flac m4r.
+m4r is an iPhone ringtone (AAC); ringtones can be at most 40 seconds long.
+
+Exit codes: 0 ok, 1 usage error, 2 invalid input, 3 ffmpeg failed.
+EOF
+}
+
+die()  { echo "audiocrop: $*" >&2; exit 2; }
+bad()  { echo "audiocrop: $*" >&2; echo "Try 'audiocrop --help'." >&2; exit 1; }
+
+# float helpers (awk, so it works everywhere)
+calc()    { awk "BEGIN { printf \"%.3f\", $1 }"; }
+lt()      { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a <  b) }'; }
+gt()      { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a >  b) }'; }
+
+NUM_RE='^-?[0-9]+(\.[0-9]+)?$'
+TIME_RE='^([0-9]+:){0,2}[0-9]+(\.[0-9]+)?$'
+
+check_num() { # name value min max
+    [[ "$2" =~ $NUM_RE ]] || die "$1 must be a number, got '$2'"
+    if lt "$2" "$3" || gt "$2" "$4"; then die "$1 must be between $3 and $4, got $2"; fi
+}
+
+parse_time() { # value -> seconds
+    [[ "$1" =~ $TIME_RE ]] || die "invalid time '$1' (use 75.5, 1:15.5 or 0:01:15.5)"
+    echo "$1" | awk -F: '{ s = 0; for (i = 1; i <= NF; i++) s = s * 60 + $i; printf "%.3f", s }'
+}
+
+need_arg() { [ $# -ge 2 ] && [ -n "$2" ] || bad "option $1 needs a value"; }
+
+START=""; END=""; GAIN=0; NORMALIZE=0; TARGET=-14
+FADE_IN=0; FADE_OUT=0; PREVIEW=""; FORCE=0; QUIET=0
+POS=()
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -s|--start)    need_arg "$@"; START="$2"; shift 2 ;;
+        -e|--end)      need_arg "$@"; END="$2"; shift 2 ;;
+        -g|--gain)     need_arg "$@"; GAIN="$2"; shift 2 ;;
+        -n|--normalize) NORMALIZE=1; shift ;;
+        -t|--target)   need_arg "$@"; TARGET="$2"; shift 2 ;;
+        --fade-in)     need_arg "$@"; FADE_IN="$2"; shift 2 ;;
+        --fade-out)    need_arg "$@"; FADE_OUT="$2"; shift 2 ;;
+        -p|--preview)  need_arg "$@"; PREVIEW="$2"; shift 2 ;;
+        -f|--force)    FORCE=1; shift ;;
+        -q|--quiet)    QUIET=1; shift ;;
+        -h|--help)     usage; exit 0 ;;
+        --)            shift; while [ $# -gt 0 ]; do POS+=("$1"); shift; done ;;
+        -?*)           bad "unknown option '$1'" ;;
+        *)             POS+=("$1"); shift ;;
+    esac
+done
+
+[ ${#POS[@]} -eq 2 ] || { usage >&2; exit 1; }
+IN="${POS[0]}"
+OUT="${POS[1]}"
+
+command -v ffmpeg  >/dev/null || die "ffmpeg not found"
+command -v ffprobe >/dev/null || die "ffprobe not found"
+
+[ -f "$IN" ] || die "input file not found: $IN"
+[ -d "$(dirname "$OUT")" ] || die "output directory does not exist: $(dirname "$OUT")"
+if [ -e "$OUT" ]; then
+    [ "$(cd "$(dirname "$IN")" && pwd)/$(basename "$IN")" != "$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")" ] \
+        || die "output must not be the same file as input"
+    [ "$FORCE" -eq 1 ] || die "output exists (use --force to overwrite): $OUT"
+fi
+
+check_num "gain" "$GAIN" -20 20
+check_num "target" "$TARGET" -30 -5
+check_num "fade-in" "$FADE_IN" 0 10
+check_num "fade-out" "$FADE_OUT" 0 10
+[ -z "$PREVIEW" ] || check_num "preview" "$PREVIEW" 1 60
+
+# probe input
+probe() { ffprobe -v error -select_streams a:0 -show_entries "$1" -of default=nw=1:nk=1 "$IN" | head -n1; }
+DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$IN" | head -n1)"
+CODEC="$(probe stream=codec_name)"
+RATE="$(probe stream=sample_rate)"
+[ -n "$CODEC" ] || die "no audio stream in $IN"
+[[ "$DURATION" =~ $NUM_RE ]] || die "could not read duration of $IN"
+[[ "$RATE" =~ ^[0-9]+$ ]] || RATE=44100
+
+START_S="$(parse_time "${START:-0}")"
+if [ -n "$END" ]; then END_S="$(parse_time "$END")"; else END_S="$(calc "$DURATION")"; fi
+gt "$END_S" "$DURATION" && END_S="$(calc "$DURATION")"   # clamp to file length
+lt "$START_S" "$END_S" || die "start ($START_S s) must be before end ($END_S s)"
+
+LEN="$(calc "$END_S - $START_S")"
+if [ -n "$PREVIEW" ] && lt "$PREVIEW" "$LEN"; then LEN="$(calc "$PREVIEW")"; fi
+gt "$(calc "$FADE_IN + $FADE_OUT")" "$LEN" && die "fades ($FADE_IN + $FADE_OUT s) are longer than the clip ($LEN s)"
+
+# codec by output extension
+EXT="$(echo "${OUT##*.}" | tr '[:upper:]' '[:lower:]')"
+case "$EXT" in
+    mp3)  CODEC_ARGS=(-c:a libmp3lame -q:a 0) ;;
+    m4a)  if [ "$CODEC" = "alac" ]; then CODEC_ARGS=(-c:a alac); else CODEC_ARGS=(-c:a aac -b:a 256k); fi ;;
+    aac)  CODEC_ARGS=(-c:a aac -b:a 256k) ;;
+    m4r)  CODEC_ARGS=(-c:a aac -b:a 256k -f ipod) ;;   # ffmpeg has no .m4r mapping, so name the muxer
+    opus) CODEC_ARGS=(-c:a libopus -b:a 192k) ;;
+    ogg)  CODEC_ARGS=(-c:a libvorbis -q:a 8) ;;
+    wav)  CODEC_ARGS=(-c:a pcm_s16le) ;;
+    flac) CODEC_ARGS=(-c:a flac) ;;
+    *)    die "unsupported output extension '.$EXT' (mp3 m4a aac opus ogg wav flac m4r)" ;;
+esac
+if [ "$EXT" = "m4r" ] && gt "$LEN" 40; then
+    die "iPhone ringtones can be at most 40 seconds, the clip is ${LEN}s (use --start/--end)"
+fi
+
+# filter chain: trim -> normalize -> gain -> fades -> limiter
+# Trimming is done with atrim rather than input seeking (-ss/-t): it is
+# sample-accurate, and input seeking + loudnorm can hang ffmpeg at EOF.
+FILTERS=("atrim=start=${START_S}:end=$(calc "$START_S + $LEN")" "asetpts=PTS-STARTPTS")
+if [ "$NORMALIZE" -eq 1 ]; then
+    FILTERS+=("loudnorm=I=${TARGET}:TP=-1.5:LRA=11" "aresample=${RATE}")  # loudnorm outputs 192 kHz
+fi
+awk -v g="$GAIN" 'BEGIN { exit !(g != 0) }' && FILTERS+=("volume=${GAIN}dB")
+gt "$FADE_IN" 0  && FILTERS+=("afade=t=in:st=0:d=${FADE_IN}")
+gt "$FADE_OUT" 0 && FILTERS+=("afade=t=out:st=$(calc "$LEN - $FADE_OUT"):d=${FADE_OUT}")
+FILTERS+=("alimiter=limit=0.891:level=0")   # -1 dBFS ceiling, no auto-leveling
+AF="$(IFS=,; echo "${FILTERS[*]}")"
+
+# render to a temp file next to the output, then move into place
+TMP="$(dirname "$OUT")/.audiocrop.$$.${EXT}"
+# ffmpeg runs in the background and we `wait` for it, so INT/TERM are handled
+# right away: the EXIT trap stops ffmpeg and removes the temp file.
+FFPID=""
+cleanup() { if [ -n "$FFPID" ]; then kill "$FFPID" 2>/dev/null || true; fi; rm -f "$TMP"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+ffmpeg -nostdin -hide_banner -loglevel error -y \
+    -i "$IN" \
+    -map 0:a:0 -map_metadata 0 -af "$AF" "${CODEC_ARGS[@]}" "$TMP" &
+FFPID=$!
+if ! wait "$FFPID"; then
+    FFPID=""
+    echo "audiocrop: ffmpeg failed" >&2
+    exit 3
+fi
+FFPID=""
+mv -f "$TMP" "$OUT"
+trap - EXIT INT TERM
+
+if [ "$QUIET" -eq 1 ]; then
+    echo "$OUT"
+else
+    echo "Wrote $OUT (${LEN}s from ${START_S}s, gain ${GAIN} dB$([ "$NORMALIZE" -eq 1 ] && echo ", normalized to ${TARGET} LUFS"))"
+fi

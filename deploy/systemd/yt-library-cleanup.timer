@@ -1,0 +1,13 @@
+[Unit]
+Description=Run yt-library cleanup periodically
+
+[Timer]
+# install.sh overrides this from YTL_CLEANUP_ONCALENDAR in
+# yt-library-cleanup.timer.d/schedule.conf.
+OnCalendar=*:0/15
+Persistent=true
+AccuracySec=1min
+Unit=yt-library-cleanup.service
+
+[Install]
+WantedBy=timers.target

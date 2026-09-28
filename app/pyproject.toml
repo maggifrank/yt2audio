@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yt-library"
+version = "0.1.0"
+description = "Shared temporary music library built around yt2audio and audiocrop"
+requires-python = ">=3.11"
+dependencies = ["fastapi", "uvicorn", "python-multipart"]
+
+[project.scripts]
+yt-library = "yt_library.cli:main"
+
+[tool.setuptools]
+packages = ["yt_library"]
+
+[tool.setuptools.package-data]
+yt_library = ["static/*"]

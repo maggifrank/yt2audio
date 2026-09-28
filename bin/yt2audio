@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: yt2audio [-1] [-q] <youtube-url> [output-dir] [format]"
+    echo "       yt2audio [-1] [-q] <youtube-url> [format]"
+    echo "  -1  fetch only the video, even if the URL contains a playlist"
+    echo "  -q  quiet: print only the final file path(s)"
+    exit 1
+}
+
+PLAYLIST=(--yes-playlist)
+QUIET=()
+while getopts ":1q" opt; do
+    case "$opt" in
+        1) PLAYLIST=(--no-playlist) ;;
+        q) QUIET=(--quiet --no-warnings --print after_move:filepath) ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ $# -eq 0 ]; then usage; fi
+
+URL="$1"
+OUTDIR="${2:-.}"
+FMT="${3:-mp3}"
+
+# if arg 2 is a format name, treat it as such and keep outdir = .
+case "$OUTDIR" in
+    mp3|m4a|opus|vorbis|wav|flac|aac|alac)
+        FMT="$OUTDIR"
+        OUTDIR="."
+        ;;
+esac
+
+mkdir -p "$OUTDIR"
+QUALITY=()
+case "$FMT" in
+    mp3|m4a|opus|vorbis) QUALITY=(--audio-quality 0) ;;
+esac
+
+yt-dlp -x --audio-format "$FMT" ${QUALITY[@]+"${QUALITY[@]}"} \
+    "${PLAYLIST[@]}" ${QUIET[@]+"${QUIET[@]}"} --ignore-errors \
+    -o "$OUTDIR/%(playlist_index&{}- |)s%(title)s.%(ext)s" \
+    "$URL"

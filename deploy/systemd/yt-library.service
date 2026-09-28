@@ -1,0 +1,42 @@
+[Unit]
+Description=yt-library shared temporary music library
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yt-library
+Group=yt-library
+EnvironmentFile=/etc/yt-library/yt-library.env
+Environment=HOME=/var/lib/yt-library
+WorkingDirectory=/var/lib/yt-library
+ExecStart=/opt/yt-library/venv/bin/yt-library serve
+Restart=on-failure
+RestartSec=5
+# Job children (yt-dlp, deno, ffmpeg) must die with the service.
+KillMode=control-group
+TimeoutStopSec=20
+UMask=0027
+
+# Hardening. Kept to options that work in an unprivileged Proxmox LXC
+# (with nesting=1). Do not add MemoryDenyWriteExecute (deno's JIT needs W+X
+# memory), nor ProtectClock/ProtectKernelLogs/PrivateUsers/ProtectHostname.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+# The library dir and DB dir are added by install.sh in
+# yt-library.service.d/paths.conf.
+ReadWritePaths=/var/lib/yt-library
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

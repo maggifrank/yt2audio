@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>yt-library</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>yt-library</h1>
+    <span class="muted small">Shared, temporary music library. Songs expire automatically.</span>
+  </header>
+
+  <!-- Add music -->
+  <section class="card" aria-labelledby="add-h">
+    <h2 id="add-h">Add music</h2>
+    <form id="add-form" autocomplete="off">
+      <div class="row">
+        <label class="field grow">YouTube URL
+          <input type="url" id="url" required placeholder="https://www.youtube.com/watch?v=..." inputmode="url">
+        </label>
+        <label class="field">Format
+          <select id="format"></select>
+        </label>
+        <label class="field">Keep for
+          <select id="lifetime"></select>
+        </label>
+        <div class="row" style="align-self:flex-end">
+          <button type="submit" id="check-btn">Check</button>
+        </div>
+      </div>
+      <p id="add-msg" class="msg" role="status" aria-live="polite"></p>
+      <div id="probe" class="probe hidden">
+        <div id="probe-summary"></div>
+        <div id="probe-choice" class="choice hidden">
+          <label class="inline"><input type="radio" name="scope" value="single" checked> <span id="choice-single">Just this video</span></label>
+          <label class="inline"><input type="radio" name="scope" value="all"> <span id="choice-all">Whole playlist</span></label>
+        </div>
+        <ol id="probe-list"></ol>
+        <div class="row">
+          <button type="button" class="primary" id="download-btn">Download</button>
+          <button type="button" id="probe-cancel">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- Jobs -->
+  <section class="card" aria-labelledby="jobs-h">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="jobs-h">Jobs</h2>
+      <span id="jobs-note" class="muted small"></span>
+    </div>
+    <div id="jobs" class="jobs"><p class="muted small">Loading…</p></div>
+    <p id="jobs-msg" class="msg error" role="alert"></p>
+  </section>
+
+  <!-- Library -->
+  <section class="card" aria-labelledby="lib-h">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 id="lib-h" style="margin:0">Library</h2>
+      <div class="quota" title="Storage used">
+        <span id="quota-text"></span>
+        <meter id="quota-meter" min="0" max="1" value="0" low="0.75" high="0.9" optimum="0"></meter>
+      </div>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Filter by title, uploader or format" aria-label="Filter songs">
+      <button type="button" id="select-matching">Select all matching filter</button>
+      <label class="inline small mobile-sort">Sort
+        <select id="mobile-sort" aria-label="Sort by">
+          <option value="created_at:desc">Newest</option>
+          <option value="created_at:asc">Oldest</option>
+          <option value="title:asc">Title</option>
+          <option value="uploader:asc">Uploader</option>
+          <option value="duration:desc">Duration</option>
+          <option value="size:desc">Size</option>
+          <option value="expires_at:asc">Expires soonest</option>
+        </select>
+      </label>
+    </div>
+    <div class="bulk" id="bulk">
+      <strong id="sel-count">0 selected</strong>
+      <button type="button" id="bulk-zip" disabled>Download zip</button>
+      <span class="row" style="gap:4px">
+        <select id="bulk-lifetime" aria-label="Extend by"></select>
+        <button type="button" id="bulk-extend" disabled>Extend</button>
+      </span>
+      <button type="button" id="bulk-delete" class="danger" disabled>Delete</button>
+      <button type="button" id="bulk-clear" class="link small" disabled>Clear selection</button>
+    </div>
+    <p id="lib-msg" class="msg" role="status" aria-live="polite"></p>
+    <div class="table-wrap">
+      <table class="lib" id="lib">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="check-all" aria-label="Select all visible"></th>
+            <th class="sortable" data-key="title">Title</th>
+            <th class="sortable" data-key="uploader">Uploader</th>
+            <th class="sortable num" data-key="duration">Duration</th>
+            <th class="sortable" data-key="format">Format</th>
+            <th class="sortable num" data-key="size">Size</th>
+            <th class="sortable" data-key="created_at" aria-sort="descending">Added</th>
+            <th class="sortable" data-key="expires_at">Expires in</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="lib-body"></tbody>
+      </table>
+      <div id="lib-empty" class="empty hidden"></div>
+    </div>
+  </section>
+</div>
+
+<!-- Sticky player -->
+<div class="player hidden" id="player">
+  <span class="ptitle" id="player-title"></span>
+  <audio id="audio" controls preload="none"></audio>
+  <button type="button" class="small" id="player-close" aria-label="Close player">Close</button>
+</div>
+
+<!-- Confirm dialog -->
+<dialog id="confirm">
+  <form method="dialog">
+    <h2 id="confirm-title">Delete songs?</h2>
+    <p id="confirm-text"></p>
+    <ul id="confirm-list"></ul>
+    <div class="row">
+      <button value="cancel" type="submit">Cancel</button>
+      <button value="ok" type="submit" class="danger solid" id="confirm-ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Zip download: real form post so the browser streams the file -->
+<form id="zip-form" method="post" action="/api/zip" class="hidden">
+  <input type="hidden" name="ids" id="zip-ids">
+</form>
+
+<script src="/static/library.js"></script>
+</body>
+</html>
