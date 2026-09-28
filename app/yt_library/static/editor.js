@@ -155,6 +155,7 @@ function readControls() {
     target: parseFloat($("target").value),
     fade_in: parseFloat($("fade-in").value) || 0,
     fade_out: parseFloat($("fade-out").value) || 0,
+    ringtone: $("output").value === "ringtone",
   };
 }
 
@@ -171,6 +172,10 @@ function validate() {
   const ctrlErrs = [];
   if (c.fade_in + c.fade_out > selEnd - selStart + 1e-6) {
     ctrlErrs.push(`Fade in + fade out (${(c.fade_in + c.fade_out).toFixed(1)} s) is longer than the selection (${(selEnd - selStart).toFixed(1)} s).`);
+  }
+  const maxRing = e.ringtone_max_seconds || 40;
+  if (c.ringtone && selEnd - selStart > maxRing + 0.0005) {
+    ctrlErrs.push(`iPhone ringtones can be at most ${maxRing} seconds; the selection is ${(selEnd - selStart).toFixed(1)} s.`);
   }
   if (c.gain < e.gain_min || c.gain > e.gain_max) ctrlErrs.push(`Gain must be between ${e.gain_min} and ${e.gain_max} dB.`);
   if (c.normalize) {
@@ -197,10 +202,17 @@ function buildBody() {
     target: isFinite(c.target) ? c.target : config.edit.target_default,
     fade_in: c.fade_in,
     fade_out: c.fade_out,
+    ringtone: c.ringtone,
   };
 }
 
 // ---------- controls ----------
+$("output").addEventListener("change", () => {
+  const ring = $("output").value === "ringtone";
+  $("ringtone-help").classList.toggle("hidden", !ring);
+  $("save-btn").textContent = ring ? "Save as ringtone" : "Save as new song";
+  validate();
+});
 function setupControls() {
   const e = config.edit;
   const gain = $("gain");

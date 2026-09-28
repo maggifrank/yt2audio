@@ -113,6 +113,12 @@ systemd drop-ins from them). Durations use `s m h d w`, sizes `K M G T`.
   normalize (+ target LUFS under *Advanced*), fades, a server-rendered 15-second
   *Preview*, and *Save as new song*, which keeps the original and creates
   "<title> (edit)" in the same format with the original's expiry.
+- **iPhone ringtones**: in the editor, set *Save as* to *iPhone ringtone*, select at most
+  40 seconds (the iPhone limit), then save and download the `.m4r` (AAC). The server can't
+  put it on the phone: on a Mac, connect the iPhone and drag the file onto it in Finder
+  (on Windows use the Apple Devices app or iTunes), then choose it under Settings >
+  Sounds & Haptics > Ringtone. Without a computer, GarageBand on the iPhone can import the
+  file and export it as a ringtone.
 
 ## The scripts
 
@@ -150,7 +156,8 @@ audiocrop [options] <input> <output>
 
 TIME is `75.5`, `1:15.5` or `0:01:15.5`. Filter order: trim → normalize → gain → fades →
 limiter (always on, -1 dBFS ceiling). Output format follows the output extension
-(`mp3 m4a aac opus ogg wav flac`); ALAC input written to `.m4a` stays ALAC.
+(`mp3 m4a aac opus ogg wav flac m4r`); ALAC input written to `.m4a` stays ALAC.
+`.m4r` writes an iPhone ringtone (AAC in an MP4 container) and refuses clips over 40 seconds.
 Exit codes: 0 ok, 1 usage error, 2 invalid input, 3 ffmpeg failed; 130/143 when
 interrupted.
 

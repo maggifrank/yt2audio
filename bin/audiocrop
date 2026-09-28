@@ -22,7 +22,8 @@ Options:
 
 TIME can be seconds (75.5), mm:ss(.ms) (1:15.5) or hh:mm:ss(.ms).
 A limiter (-1 dBFS ceiling) is always applied so boosted audio never clips.
-Output format follows the output extension: mp3 m4a aac opus ogg wav flac.
+Output format follows the output extension: mp3 m4a aac opus ogg wav flac m4r.
+m4r is an iPhone ringtone (AAC); ringtones can be at most 40 seconds long.
 
 Exit codes: 0 ok, 1 usage error, 2 invalid input, 3 ffmpeg failed.
 EOF
@@ -119,12 +120,16 @@ case "$EXT" in
     mp3)  CODEC_ARGS=(-c:a libmp3lame -q:a 0) ;;
     m4a)  if [ "$CODEC" = "alac" ]; then CODEC_ARGS=(-c:a alac); else CODEC_ARGS=(-c:a aac -b:a 256k); fi ;;
     aac)  CODEC_ARGS=(-c:a aac -b:a 256k) ;;
+    m4r)  CODEC_ARGS=(-c:a aac -b:a 256k -f ipod) ;;   # ffmpeg has no .m4r mapping, so name the muxer
     opus) CODEC_ARGS=(-c:a libopus -b:a 192k) ;;
     ogg)  CODEC_ARGS=(-c:a libvorbis -q:a 8) ;;
     wav)  CODEC_ARGS=(-c:a pcm_s16le) ;;
     flac) CODEC_ARGS=(-c:a flac) ;;
-    *)    die "unsupported output extension '.$EXT' (mp3 m4a aac opus ogg wav flac)" ;;
+    *)    die "unsupported output extension '.$EXT' (mp3 m4a aac opus ogg wav flac m4r)" ;;
 esac
+if [ "$EXT" = "m4r" ] && gt "$LEN" 40; then
+    die "iPhone ringtones can be at most 40 seconds, the clip is ${LEN}s (use --start/--end)"
+fi
 
 # filter chain: trim -> normalize -> gain -> fades -> limiter
 # Trimming is done with atrim rather than input seeking (-ss/-t): it is

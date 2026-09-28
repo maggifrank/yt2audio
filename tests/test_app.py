@@ -283,3 +283,24 @@ def test_new_edit_after_deleting_one_gets_a_new_id_and_exact_crop(client):
     assert abs(song["duration"] - 1.5) < 0.06, song["duration"]
     r = c.get(song["download_url"])
     assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+
+
+def test_iphone_ringtone_export(client):
+    c = client
+    job = wait_job(c, c.post("/api/jobs", json={"url": "https://youtu.be/RRRRRRRRRRR", "format": "mp3"},
+                             headers=ORIGIN).json()["id"])
+    src = job["tracks"][0]["song_id"]
+    # the whole 50 s song is too long for a ringtone
+    r = c.post(f"/api/songs/{src}/edit", json={"ringtone": True}, headers=ORIGIN)
+    assert r.status_code == 400 and "40 seconds" in r.json()["detail"]
+    pj = wait_job(c, c.post(f"/api/songs/{src}/preview", json={"start": 5, "end": 35, "ringtone": True},
+                            headers=ORIGIN).json()["id"])
+    assert pj["status"] == "done" and c.get(pj["preview_url"]).status_code == 200
+    ej = wait_job(c, c.post(f"/api/songs/{src}/edit", json={"start": 5, "end": 35, "fade_out": 2, "ringtone": True},
+                            headers=ORIGIN).json()["id"])
+    assert ej["status"] == "done", ej
+    song = c.get(f"/api/songs/{ej['result_song_id']}").json()
+    assert song["ext"] == "m4r" and song["title"].endswith("(ringtone)") and abs(song["duration"] - 30) < 0.1
+    r = c.get(song["download_url"])
+    assert r.status_code == 200 and ".m4r" in r.headers["content-disposition"]
+    assert r.content[4:8] == b"ftyp"  # MP4 container, as iPhones expect

@@ -85,6 +85,13 @@
 
     <section class="card preview" aria-labelledby="prev-h">
       <h2 id="prev-h">Preview &amp; save</h2>
+      <label class="small" for="output">Save as
+        <select id="output">
+          <option value="same" selected>Same format as the original</option>
+          <option value="ringtone">iPhone ringtone (.m4r, up to 40 seconds)</option>
+        </select>
+      </label>
+      <p id="ringtone-help" class="small muted hidden">Select at most 40 seconds. After saving, download the .m4r and add it to your iPhone: on a Mac, connect the iPhone and drag the file onto it in Finder (on Windows, use the Apple Devices app or iTunes); then pick it in Settings &gt; Sounds &amp; Haptics &gt; Ringtone.</p>
       <div class="row">
         <button type="button" id="preview-btn">Preview</button>
         <button type="button" id="save-btn" class="primary">Save as new song</button>

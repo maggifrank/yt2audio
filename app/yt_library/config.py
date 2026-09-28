@@ -22,6 +22,7 @@ TARGET_RANGE = (-30.0, -5.0)
 TARGET_DEFAULT = -14.0
 FADE_RANGE = (0.0, 10.0)
 PREVIEW_SECONDS = 15
+RINGTONE_MAX_SECONDS = 40  # iPhone limit; audiocrop enforces it for .m4r
 
 _UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 _UNIT_NAMES = {"s": "second", "m": "minute", "h": "hour", "d": "day", "w": "week"}

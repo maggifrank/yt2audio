@@ -273,7 +273,9 @@ class Worker:
         params = json.loads(job["params"])
         tmp = self._job_tmpdir(job["id"])
         try:
-            out = tmp / f"edit.{song['ext']}"
+            ringtone = bool(params.get("ringtone"))
+            ext, fmt = ("m4r", "m4r") if ringtone else (song["ext"], song["format"])
+            out = tmp / f"edit.{ext}"
             with self.slots:
                 res = ytdl.audiocrop(cfg, src, out, params, None, EDIT_TIMEOUT)
             if res.returncode != 0 or not out.is_file():
@@ -286,16 +288,17 @@ class Worker:
                     return
                 n = conn.execute("SELECT COALESCE(MAX(edit_n), 0) + 1 FROM songs WHERE video_id = ?",
                                  (song["video_id"],)).fetchone()[0]
-                while (cfg.library_dir / f"{song['video_id']}-edit-{n}.{song['ext']}").exists():
+                while (cfg.library_dir / f"{song['video_id']}-edit-{n}.{ext}").exists():
                     n += 1
-                filename = f"{song['video_id']}-edit-{n}.{song['ext']}"
+                filename = f"{song['video_id']}-edit-{n}.{ext}"
                 dest = cfg.library_dir / filename
                 os.replace(out, dest)
                 os.utime(dest)
                 cur = conn.execute(
                     "INSERT INTO songs (video_id, format, ext, filename, title, uploader, duration, size, source_url, "
                     "parent_id, edit_n, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (song["video_id"], song["format"], song["ext"], filename, f"{song['title']} (edit)",
+                    (song["video_id"], fmt, ext, filename,
+                     f"{song['title']} ({'ringtone' if ringtone else 'edit'})",
                      song["uploader"], meta.get("duration"), dest.stat().st_size, song["source_url"],
                      song["id"], n, db.now(), song["expires_at"]))
                 self._finish(conn, job["id"], "done", None, result_song_id=cur.lastrowid)
@@ -311,9 +314,10 @@ class Worker:
                 self._finish(conn, job["id"], "failed", "the song no longer exists")
             return
         cfg.preview_dir.mkdir(parents=True, exist_ok=True)
-        out = cfg.preview_dir / f"{job['id']}.{song['ext']}"
+        params = json.loads(job["params"])
+        out = cfg.preview_dir / f"{job['id']}.{'m4r' if params.get('ringtone') else song['ext']}"
         from .config import PREVIEW_SECONDS
-        res = ytdl.audiocrop(cfg, src, out, json.loads(job["params"]), PREVIEW_SECONDS, EDIT_TIMEOUT)
+        res = ytdl.audiocrop(cfg, src, out, params, PREVIEW_SECONDS, EDIT_TIMEOUT)
         with db.tx(conn):
             if res.returncode != 0 or not out.is_file():
                 library.remove_quietly(out)

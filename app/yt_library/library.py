@@ -15,7 +15,7 @@ from .util import video_url
 log = logging.getLogger("yt_library")
 
 MEDIA_TYPES = {"mp3": "audio/mpeg", "m4a": "audio/mp4", "aac": "audio/aac", "opus": "audio/ogg",
-               "ogg": "audio/ogg", "wav": "audio/wav", "flac": "audio/flac"}
+               "ogg": "audio/ogg", "wav": "audio/wav", "flac": "audio/flac", "m4r": "audio/mp4"}
 ACTIVE = ("queued", "running")
 UNKNOWN_DURATION = 600  # seconds assumed for the quota estimate when yt-dlp gives none
 
