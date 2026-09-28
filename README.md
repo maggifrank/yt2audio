@@ -1,3 +1,5 @@
+<p align="center"><img src="app/yt_library/static/logo.svg" alt="yt-library" width="520"></p>
+
 # yt2audio / yt-library
 
 A small self-hosted web app that turns two bash scripts into a **shared, temporary
