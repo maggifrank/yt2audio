@@ -1,0 +1,37 @@
+[Unit]
+Description=yt-library cleanup (expired songs, previews, stale jobs)
+After=network-online.target
+
+# Started by yt-library-cleanup.timer; no [Install] section on purpose.
+[Service]
+Type=oneshot
+User=yt-library
+Group=yt-library
+EnvironmentFile=/etc/yt-library/yt-library.env
+Environment=HOME=/var/lib/yt-library
+WorkingDirectory=/var/lib/yt-library
+ExecStart=/opt/yt-library/venv/bin/yt-library cleanup
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=15min
+KillMode=control-group
+UMask=0027
+Nice=10
+
+# Same hardening as yt-library.service (see the notes there).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+# The library dir and DB dir are added by install.sh in
+# yt-library-cleanup.service.d/paths.conf.
+ReadWritePaths=/var/lib/yt-library
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+CapabilityBoundingSet=

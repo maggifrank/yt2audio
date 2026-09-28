@@ -1,0 +1,16 @@
+# Pinned app dependencies (install.sh installs these into /opt/yt-library/venv).
+# yt-dlp is NOT here: it lives in its own venv, pinned in deploy/yt-dlp.version.
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+fastapi==0.141.1
+h11==0.16.0
+idna==3.20
+pydantic-core==2.46.5
+pydantic==2.13.5
+python-multipart==0.0.32
+starlette==1.7.0
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.54.0

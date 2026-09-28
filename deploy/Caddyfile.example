@@ -1,0 +1,38 @@
+# Example Caddy site block for yt-library.
+#
+# Caddy on ANOTHER host (e.g. a separate proxy LXC or your tailnet gateway):
+#   in /etc/yt-library/yt-library.env on the yt-library LXC set
+#     YTL_HOST=<the LXC's internal IP, e.g. 10.0.0.42>
+#     YTL_TRUSTED_PROXIES=<the Caddy host's IP, e.g. 10.0.0.10>
+#   and firewall port 8080 so only the Caddy host can reach it.
+# Caddy on the SAME host as yt-library:
+#     YTL_HOST=127.0.0.1
+#     YTL_TRUSTED_PROXIES=127.0.0.1
+#   and use `reverse_proxy 127.0.0.1:8080` below.
+#
+# Caddy sets X-Forwarded-For / X-Forwarded-Proto itself; yt-library only trusts
+# that header from YTL_TRUSTED_PROXIES (used for per-IP rate limiting).
+#
+# If you serve the UI under more than one hostname, add the extra origins
+# (e.g. https://music.example.ts.net) to YTL_ALLOWED_ORIGINS.
+
+music.home.arpa {
+	# .home.arpa is not publicly resolvable, so use Caddy's internal CA
+	# (or remove this line for a public name with a real certificate).
+	tls internal
+
+	# The API only takes small JSON/form bodies.
+	request_body {
+		max_size 1MB
+	}
+
+	reverse_proxy 10.0.0.42:8080
+}
+
+# Tailscale example (Caddy running on a tailnet node fetches the cert itself):
+# music.your-tailnet.ts.net {
+# 	request_body {
+# 		max_size 1MB
+# 	}
+# 	reverse_proxy 10.0.0.42:8080
+# }

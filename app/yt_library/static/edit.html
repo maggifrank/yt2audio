@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit song · yt-library</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Crop &amp; boost</h1>
+    <a href="/" id="back-link">&larr; Back to library</a>
+  </header>
+
+  <p id="load-msg" class="msg info" role="status">Loading…</p>
+
+  <div id="editor" class="hidden">
+    <section class="card">
+      <h2 id="song-title"></h2>
+      <div class="meta">
+        <span>Format: <strong id="song-format"></strong></span>
+        <span>Duration: <strong id="song-duration"></strong></span>
+        <span id="song-from" class="hidden">From: <span id="song-parent"></span></span>
+      </div>
+      <p class="note">Saving creates a <strong>new</strong> song in the library; the original is kept. The new entry inherits the original's expiry.</p>
+    </section>
+
+    <section class="card" aria-labelledby="crop-h">
+      <h2 id="crop-h">Selection</h2>
+      <p class="note">Drag the highlighted region or its edges on the waveform, or type exact times below (m:ss.mmm, e.g. 1:15.500).</p>
+      <div id="waveform" aria-label="Waveform"></div>
+      <p id="wave-msg" class="msg" role="status"></p>
+      <div class="times">
+        <label class="field">Start
+          <input type="text" id="start" inputmode="decimal" spellcheck="false" autocomplete="off" aria-describedby="time-msg">
+        </label>
+        <label class="field">End
+          <input type="text" id="end" inputmode="decimal" spellcheck="false" autocomplete="off" aria-describedby="time-msg">
+        </label>
+        <div class="field">
+          <span class="small muted">Length</span>
+          <strong id="sel-len" class="mono">–</strong>
+        </div>
+        <div class="row">
+          <button type="button" id="play-btn" disabled>Play</button>
+          <button type="button" id="play-sel-btn" disabled>Play selection</button>
+          <button type="button" id="reset-btn">Whole song</button>
+        </div>
+      </div>
+      <p id="time-msg" class="msg error" role="alert"></p>
+    </section>
+
+    <section class="card" aria-labelledby="adj-h">
+      <h2 id="adj-h">Adjustments</h2>
+      <div class="controls">
+        <div class="slider">
+          <div class="lbl"><label for="gain">Gain</label><output id="gain-out" for="gain">0.0 dB</output></div>
+          <input type="range" id="gain" step="0.5" value="0">
+        </div>
+        <div class="slider">
+          <div class="lbl"><label for="fade-in">Fade in</label><output id="fade-in-out" for="fade-in">0.0 s</output></div>
+          <input type="range" id="fade-in" step="0.1" value="0">
+        </div>
+        <div class="slider">
+          <div class="lbl"><label for="fade-out">Fade out</label><output id="fade-out-out" for="fade-out">0.0 s</output></div>
+          <input type="range" id="fade-out" step="0.1" value="0">
+        </div>
+        <div>
+          <label class="inline"><input type="checkbox" id="normalize"> Normalize loudness</label>
+          <p class="note" style="margin:4px 0 0">Brings the selection to a consistent loudness (EBU R128). Gain is applied on top.</p>
+        </div>
+      </div>
+      <details class="adv">
+        <summary>Advanced</summary>
+        <div class="inner row">
+          <label class="field">Target loudness (LUFS)
+            <input type="number" id="target" step="0.5">
+          </label>
+          <span class="note" id="target-note">Only used when normalize is on.</span>
+        </div>
+      </details>
+      <p id="ctrl-msg" class="msg error" role="alert"></p>
+    </section>
+
+    <section class="card preview" aria-labelledby="prev-h">
+      <h2 id="prev-h">Preview &amp; save</h2>
+      <div class="row">
+        <button type="button" id="preview-btn">Preview</button>
+        <button type="button" id="save-btn" class="primary">Save as new song</button>
+      </div>
+      <p id="preview-msg" class="msg" role="status" aria-live="polite"></p>
+      <div id="preview-box" class="hidden">
+        <div class="small muted" id="preview-label">Preview: first 15 seconds of the processed result</div>
+        <audio id="preview-audio" controls preload="auto"></audio>
+      </div>
+      <p id="save-msg" class="msg" role="status" aria-live="polite"></p>
+      <div id="save-done" class="hidden row">
+        <a id="new-song-link" class="btn primary" href="/">Open new song</a>
+        <a class="btn" href="/">Back to library</a>
+      </div>
+    </section>
+  </div>
+</div>
+<script type="module" src="/static/editor.js"></script>
+</body>
+</html>
