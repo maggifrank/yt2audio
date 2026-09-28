@@ -141,14 +141,24 @@ AF="$(IFS=,; echo "${FILTERS[*]}")"
 
 # render to a temp file next to the output, then move into place
 TMP="$(dirname "$OUT")/.audiocrop.$$.${EXT}"
-trap 'rm -f "$TMP"' EXIT INT TERM
+# ffmpeg runs in the background and we `wait` for it, so INT/TERM are handled
+# right away: the EXIT trap stops ffmpeg and removes the temp file.
+FFPID=""
+cleanup() { if [ -n "$FFPID" ]; then kill "$FFPID" 2>/dev/null || true; fi; rm -f "$TMP"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-if ! ffmpeg -nostdin -hide_banner -loglevel error -y \
-        -i "$IN" \
-        -map 0:a:0 -map_metadata 0 -af "$AF" "${CODEC_ARGS[@]}" "$TMP"; then
+ffmpeg -nostdin -hide_banner -loglevel error -y \
+    -i "$IN" \
+    -map 0:a:0 -map_metadata 0 -af "$AF" "${CODEC_ARGS[@]}" "$TMP" &
+FFPID=$!
+if ! wait "$FFPID"; then
+    FFPID=""
     echo "audiocrop: ffmpeg failed" >&2
     exit 3
 fi
+FFPID=""
 mv -f "$TMP" "$OUT"
 trap - EXIT INT TERM
 
